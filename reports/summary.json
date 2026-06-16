@@ -1,0 +1,13 @@
+{
+  "metadata": {
+    "version": "Agent_V2_Optimized",
+    "total": 54,
+    "timestamp": "2026-06-16 15:57:12"
+  },
+  "metrics": {
+    "avg_score": 3.513888888888889,
+    "hit_rate": 0.7777777777777778,
+    "mrr": 0.7592592592592593,
+    "agreement_rate": 0.8888888888888885
+  }
+}

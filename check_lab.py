@@ -49,6 +49,8 @@ def validate_lab():
     has_retrieval = "hit_rate" in metrics
     if has_retrieval:
         print(f"✅ Đã tìm thấy Retrieval Metrics (Hit Rate: {metrics['hit_rate']*100:.1f}%)")
+        if "mrr" in metrics:
+            print(f"✅ Đã tìm thấy Retrieval Metrics (MRR: {metrics['mrr']:.3f})")
     else:
         print(f"⚠️ CẢNH BÁO: Thiếu Retrieval Metrics (hit_rate).")
 

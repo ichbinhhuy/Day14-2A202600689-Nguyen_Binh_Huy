@@ -41,6 +41,7 @@ async def run_benchmark_with_results(agent_version: str):
         "metrics": {
             "avg_score": sum(r["judge"]["final_score"] for r in results) / total,
             "hit_rate": sum(r["ragas"]["retrieval"]["hit_rate"] for r in results) / total,
+            "mrr": sum(r["ragas"]["retrieval"]["mrr"] for r in results) / total,
             "agreement_rate": sum(r["judge"]["agreement_rate"] for r in results) / total
         }
     }

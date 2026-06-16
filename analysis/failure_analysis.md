@@ -1,49 +1,54 @@
-# Báo cáo Phân tích Thất bại (Failure Analysis Report)
+# Báo cáo Phân tích Lỗi
 
-## 1. Tổng quan Benchmark
-- **Tổng số cases:** 54
-- **Tỉ lệ Pass/Fail:** 53 Pass / 1 Fail (Ngưỡng Pass: Score >= 3.0)
-- **Điểm RAGAS trung bình (V2 Optimized):**
-    - Faithfulness: 0.91
-    - Relevancy: 0.88
-    - Retrieval Hit Rate: 100% (Do RAG agent tối ưu lấy đúng file nguồn)
-- **Điểm LLM-Judge trung bình:** 
-    - Agent V1 Base: 3.77 / 5.0
-    - Agent V2 Optimized: 4.66 / 5.0 (Cải thiện rõ rệt +0.89)
+## 1. Tổng quan kết quả Benchmark
+- **Tổng số câu hỏi đánh giá:** 54
+- **Điểm trung bình Agent V1 (Base):** 3.42 / 5.0
+- **Điểm trung bình Agent V2 (Optimized):** 3.51 / 5.0
+- **Điểm cải thiện (Delta):** +0.09 (Chấp nhận cập nhật)
+- **Tỷ lệ tìm kiếm chính xác (Hit Rate):** 77.78%
+- **Tỷ lệ đồng thuận giữa các Judge (Agreement Rate):** 88.89%
 
----
-
-## 2. Phân nhóm lỗi (Failure Clustering)
-
-| Nhóm lỗi | Số lượng | Nguyên nhân dự kiến |
-|----------|----------|---------------------|
-| **Cost Efficiency Fallback** (Chào hỏi/Xã giao) | 1 | Hệ thống Router định tuyến sai câu hỏi xã giao vào luồng trả lời chính, trả về disclaimer khô khan. |
-| **Ambiguity Handling** (Mập mờ thực thể) | 1 | Agent không chủ động hỏi lại (clarify) khi gặp câu hỏi thiếu thông tin chủ ngữ ("nghệ sĩ đó"). |
-| **Context Carry-over** (Đa lượt kế thừa) | 2 | Khả năng phân giải từ chiếu (Coreference Resolution) trong hội thoại đa lượt của V1 chưa tốt (đã tối ưu ở V2). |
+### Khác biệt giữa Agent V1 (Base) và Agent V2 (Optimized)
+- **Agent V1 (Base):**
+  - Không sử dụng cơ chế sắp xếp lại tài liệu (Reranking). Các tài liệu lấy ra từ tìm kiếm lai (Hybrid Search) được đưa trực tiếp vào mô hình sinh mà không lọc nhiễu.
+  - Câu trả lời thường bị cắt ngắn, thiếu chi tiết hoặc đôi khi bị bỏ sót thông tin quan trọng.
+- **Agent V2 (Optimized):**
+  - Sử dụng đầy đủ tìm kiếm lai kết hợp với Reranking (sử dụng Cross-Encoder và RRF). Điều này giúp chọn lọc các tài liệu có độ liên quan cao nhất lên đầu ngữ cảnh.
+  - Câu trả lời được cải thiện đầy đủ, chính xác và bám sát tài liệu đối chiếu hơn.
 
 ---
 
-## 3. Phân tích 5 Whys (Chọn các case tệ nhất)
+## 2. Phân nhóm các lỗi gặp phải
 
-### Case #1: Câu hỏi xã giao "Chào bạn, bạn có khỏe không?" (Case ID: 40)
-1. **Symptom:** Giám khảo chấm điểm rất thấp (1.5/5.0) do câu trả lời không thân thiện.
-2. **Why 1:** Agent trả lời bằng một thông báo từ chối dịch vụ pháp lý dài dòng và khô khan.
-3. **Why 2:** Agent cố gắng áp dụng luật phòng chống ma túy vào một câu hỏi chào hỏi xã giao.
-4. **Why 3:** Hệ thống RAG tự động nạp các tài liệu luật pháp không liên quan để làm ngữ cảnh cho câu chào.
-5. **Why 4:** Bộ phân loại câu hỏi (Query Router) của Agent hoạt động không chính xác, định tuyến nhầm câu xã giao vào pipeline RAG pháp luật.
-6. **Root Cause (Nguyên nhân gốc rễ):** Thiếu bộ lọc phân tách nhanh (Fast-path Greeting Router) ở cổng vào của Agent để xử lý hội thoại thông thường không cần tra cứu DB (giúp tối ưu hóa token và nâng cao trải nghiệm người dùng).
-
-### Case #2: Câu hỏi mập mờ "Nghệ sĩ đó bị bắt giữ ở đâu..." (Case ID: 53)
-1. **Symptom:** Giám khảo chấm điểm trung bình (3.0/5.0), xảy ra xung đột lớn giữa các Judge (GPT chấm cao nhưng Llama chấm thấp) và phải hiệu chuẩn.
-2. **Why 1:** Agent đưa ra phỏng đoán bừa bãi hoặc trả lời chung chung thay vì yêu cầu người dùng làm rõ.
-3. **Why 2:** Agent không nhận biết được rằng từ khóa "nghệ sĩ đó" trong câu hỏi đang bị mập mờ (có nhiều nghệ sĩ bị bắt trong tập tài liệu: Chi Dân, Miu Lê, Andrea Aybar).
-4. **Why 3:** Hệ thống lấy ngữ cảnh (Retriever) trả về tất cả các bài báo của các nghệ sĩ, làm tràn ngập thông tin vào Prompt của LLM.
-5. **Why 4:** System prompt của Agent chỉ yêu cầu "trả lời câu hỏi" mà không hướng dẫn Agent phải dừng lại để yêu cầu làm rõ (Clarification) khi thông tin đầu vào bị thiếu.
-6. **Root Cause (Nguyên nhân gốc rễ):** Thiếu cơ chế phát hiện mập mờ (Ambiguity Detection) và hội thoại chủ động (Clarification Hook) trong System Prompt của Agent.
+| Nhóm lỗi | Số lượng | Nguyên nhân chính |
+| :--- | :--- | :--- |
+| **Định tuyến câu hỏi chào hỏi** | 1 | Hệ thống tự động đưa câu chào hỏi xã giao vào tìm kiếm tài liệu luật, dẫn đến câu trả lời dài dòng không cần thiết. |
+| **Xử lý câu hỏi thiếu thông tin** | 1 | Người dùng hỏi về "nghệ sĩ đó" nhưng hệ thống không yêu cầu làm rõ danh tính mà tự phỏng đoán từ tài liệu. |
+| **Kế thừa ngữ cảnh đa lượt** | 2 | Khả năng ghi nhớ thông tin từ câu hỏi trước của Agent chưa tốt. |
 
 ---
 
-## 4. Kế hoạch cải tiến (Action Plan)
-- [x] Triển khai bộ phân loại câu hỏi **Query Router** bằng Regex hoặc phân loại nhanh bằng LLM nhẹ để lọc câu hỏi xã giao/cảm ơn (Cost-efficiency) ngay ở cổng vào, giúp giảm 30% chi phí token rác.
-- [x] Cập nhật **System Prompt** của Agent bổ sung ràng buộc: *"Nếu câu hỏi của người dùng mập mờ hoặc thiếu thông tin định danh (ví dụ: 'nghệ sĩ đó', 'người này' mà có nhiều đối tượng trong ngữ cảnh), hãy lịch sự yêu cầu người dùng làm rõ danh tính trước khi trả lời."*
-- [x] Tích hợp bộ **Reranker (RRF/Cross-Encoder)** vào Pipeline RAG để lọc bỏ các context nhiễu khi tìm kiếm từ khóa chung chung.
+## 3. Phân tích nguyên nhân (Phương pháp 5 Whys)
+
+### Trường hợp 1: Trả lời câu hỏi xã giao "Chào bạn, bạn có khỏe không?" (Case 40)
+1. **Mô tả:** Điểm số nhận được rất thấp do câu trả lời quá khô khan.
+2. **Tại sao 1:** Agent đưa ra câu từ chối cung cấp tư vấn pháp lý thay vì lời chào thân thiện.
+3. **Tại sao 2:** Hệ thống cố gắng áp dụng tài liệu luật ma túy vào câu hỏi xã giao thông thường.
+4. **Tại sao 3:** Bộ tìm kiếm tài liệu (RAG) cố nạp tài liệu không liên quan làm ngữ cảnh.
+5. **Tại sao 4:** Bộ phân loại câu hỏi (Router) hoạt động sai, chuyển hướng nhầm câu hỏi chào hỏi vào luồng tra cứu luật.
+6. **Nguyên nhân gốc:** Chưa có bộ lọc nhanh (Greeting Router) ở đầu vào để xử lý riêng các câu xã giao mà không cần tìm kiếm tài liệu.
+
+### Trường hợp 2: Trả lời câu hỏi mập mờ "Nghệ sĩ đó bị bắt ở đâu?" (Case 53)
+1. **Mô tả:** Điểm số ở mức trung bình, có sự chênh lệch lớn giữa các mô hình Judge.
+2. **Tại sao 1:** Agent tự phỏng đoán thông tin để trả lời thay vì hỏi lại người dùng.
+3. **Tại sao 2:** Hệ thống không nhận biết được từ "nghệ sĩ đó" là ai (trong tài liệu có nhiều nghệ sĩ khác nhau).
+4. **Tại sao 3:** Bộ tìm kiếm trả về thông tin của tất cả các nghệ sĩ, gây nhiễu ngữ cảnh.
+5. **Tại sao 4:** System prompt của Agent chỉ yêu cầu trả lời dựa trên tài liệu, không hướng dẫn cách xử lý khi thiếu thông tin cụ thể.
+6. **Nguyên nhân gốc:** Thiếu logic phát hiện câu hỏi mập mờ và yêu cầu người dùng làm rõ trước khi trả lời.
+
+---
+
+## 4. Hướng khắc phục đề xuất
+- Thêm bộ lọc nhanh bằng từ khóa để nhận diện câu hỏi xã giao, giúp giảm chi phí gọi API.
+- Điều chỉnh System Prompt để Agent biết từ chối phỏng đoán và hỏi lại khi câu hỏi của người dùng bị thiếu thông tin rõ ràng.
+- Sử dụng thêm cơ chế sắp xếp lại tài liệu (Reranking) để lọc bớt thông tin gây nhiễu trước khi đưa vào mô hình trả lời.
